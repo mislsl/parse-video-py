@@ -90,8 +90,8 @@ async def video_id_parse(source: VideoSource, video_id: str):
         }
 
 
-# Vercel 需要这个变量
-app = mcp.setup_server()
+# 设置MCP服务器
+mcp.setup_server()
 
 # 为了兼容性，保留原有的启动方式
 if __name__ == "__main__":
