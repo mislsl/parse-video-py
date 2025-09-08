@@ -90,7 +90,9 @@ async def video_id_parse(source: VideoSource, video_id: str):
         }
 
 
-mcp.setup_server()
+# Vercel 需要这个变量
+app = mcp.setup_server()
 
+# 为了兼容性，保留原有的启动方式
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

@@ -178,3 +178,35 @@ print(
 | flake8      | 工程化：代码风格一致性                          |
 | isort       | 工程化：格式化导入package                     |
 | black       | 工程化：代码格式化                            |
+
+# Vercel 一键部署
+
+## 快速部署
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/你的用户名/parse-video-py)
+
+## 部署步骤
+
+1. **Fork 此仓库到你的 GitHub 账户**
+
+2. **点击上方按钮或访问 [Vercel](https://vercel.com/new) 进行部署**
+
+3. **导入你的 GitHub 仓库**
+
+4. **Vercel 会自动检测到 `vercel.json` 配置文件并开始部署**
+
+5. **部署完成后，你可以通过 Vercel 提供的域名访问服务**
+
+## 环境变量配置（可选）
+
+如果需要开启 Basic Auth 认证，在 Vercel 项目设置中添加以下环境变量：
+
+- `PARSE_VIDEO_USERNAME`: 用户名
+- `PARSE_VIDEO_PASSWORD`: 密码
+
+## 注意事项
+
+- Vercel 免费版函数执行时间限制为 10 秒，复杂解析可能需要升级
+- 项目已优化依赖，使用 `requirements-vercel.txt` 进行部署
+- 支持所有原有功能，包括 MCP 协议
+
