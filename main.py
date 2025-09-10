@@ -9,8 +9,29 @@ from fastapi.responses import HTMLResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.templating import Jinja2Templates
 from fastapi_mcp import FastApiMCP
+from starlette.middleware.cors import CORSMiddleware
 
 app = FastAPI()
+
+# CORS 配置：支持通过环境变量 PARSE_VIDEO_CORS_ORIGINS 设置，逗号分隔；默认允许所有
+cors_origins = os.getenv("PARSE_VIDEO_CORS_ORIGINS", "*").strip()
+if not cors_origins or cors_origins == "*":
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=False,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+else:
+    origins = [o.strip() for o in cors_origins.split(",") if o.strip()]
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
 mcp = FastApiMCP(app)
 

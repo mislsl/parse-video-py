@@ -1,0 +1,254 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "短视频去水印解析 API",
+    "description": "支持20+个主流视频平台的去水印解析服务",
+    "version": "1.0.0",
+    "contact": {
+      "name": "API Support",
+      "url": "https://github.com/mislsl/parse-video-py"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://your-domain.vercel.app",
+      "description": "生产环境"
+    },
+    {
+      "url": "http://localhost:3000",
+      "description": "本地开发环境"
+    }
+  ],
+  "security": [
+    {
+      "basicAuth": []
+    }
+  ],
+  "paths": {
+    "/": {
+      "get": {
+        "summary": "获取主页",
+        "description": "返回Web界面主页",
+        "responses": {
+          "200": {
+            "description": "成功返回HTML页面",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/video/share/url/parse": {
+      "get": {
+        "summary": "解析分享链接",
+        "description": "根据视频分享链接解析视频信息",
+        "parameters": [
+          {
+            "name": "url",
+            "in": "query",
+            "required": true,
+            "description": "视频分享链接",
+            "schema": {
+              "type": "string",
+              "example": "https://v.douyin.com/ieFbH3DP/"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "解析成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ParseResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "解析失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/video/id/parse": {
+      "get": {
+        "summary": "解析视频ID",
+        "description": "根据平台和视频ID解析视频信息",
+        "parameters": [
+          {
+            "name": "source",
+            "in": "query",
+            "required": true,
+            "description": "视频平台",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "douyin", "kuaishou", "pipixia", "weibo", "weishi",
+                "lvzhou", "zuiyou", "quanmin", "xigua", "lishipin",
+                "pipigaoxiao", "huya", "acfun", "doupai", "meipai",
+                "quanminkge", "sixroom", "xinpianchang", "haokan", "redbook"
+              ],
+              "example": "douyin"
+            }
+          },
+          {
+            "name": "video_id",
+            "in": "query",
+            "required": true,
+            "description": "视频ID",
+            "schema": {
+              "type": "string",
+              "example": "7123456789012345678"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "解析成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ParseResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "解析失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/mcp": {
+      "get": {
+        "summary": "MCP协议接口",
+        "description": "Model Context Protocol协议接口",
+        "responses": {
+          "200": {
+            "description": "MCP协议响应"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "basicAuth": {
+        "type": "http",
+        "scheme": "basic",
+        "description": "Basic Auth认证（可选）"
+      }
+    },
+    "schemas": {
+      "ParseResponse": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "example": 200
+          },
+          "msg": {
+            "type": "string",
+            "example": "解析成功"
+          },
+          "data": {
+            "$ref": "#/components/schemas/VideoInfo"
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "example": 500
+          },
+          "msg": {
+            "type": "string",
+            "example": "解析失败，视频不存在或者链接不正确"
+          }
+        }
+      },
+      "VideoInfo": {
+        "type": "object",
+        "properties": {
+          "author": {
+            "$ref": "#/components/schemas/VideoAuthor"
+          },
+          "title": {
+            "type": "string",
+            "example": "记录美好生活#峡谷天花板"
+          },
+          "video_url": {
+            "type": "string",
+            "example": "https://example.com/video.mp4"
+          },
+          "music_url": {
+            "type": "string",
+            "example": "https://example.com/music.mp3"
+          },
+          "cover_url": {
+            "type": "string",
+            "example": "https://example.com/cover.jpg"
+          },
+          "images": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImageInfo"
+            }
+          }
+        }
+      },
+      "VideoAuthor": {
+        "type": "object",
+        "properties": {
+          "uid": {
+            "type": "string",
+            "example": "123456789"
+          },
+          "name": {
+            "type": "string",
+            "example": "用户昵称"
+          },
+          "avatar": {
+            "type": "string",
+            "example": "https://example.com/avatar.jpg"
+          }
+        }
+      },
+      "ImageInfo": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "example": "https://example.com/image.jpg"
+          },
+          "live_photo_url": {
+            "type": "string",
+            "example": "https://example.com/livephoto.mp4"
+          }
+        }
+      }
+    }
+  }
+}
