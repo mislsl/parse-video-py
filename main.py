@@ -1,11 +1,13 @@
 import os
 import re
 import secrets
+import time
 from parser import VideoSource, parse_video_id, parse_video_share_url
 
 import uvicorn
-from fastapi import Depends, FastAPI, HTTPException, Request, status
-from fastapi.responses import HTMLResponse
+import httpx
+from fastapi import Depends, FastAPI, HTTPException, Request, status, Query
+from fastapi.responses import HTMLResponse, StreamingResponse, Response
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.templating import Jinja2Templates
 from fastapi_mcp import FastApiMCP
@@ -109,6 +111,73 @@ async def video_id_parse(source: VideoSource, video_id: str):
             "code": 500,
             "msg": str(err),
         }
+
+
+@app.get("/video/proxy", dependencies=get_auth_dependency())
+async def video_proxy(url: str):
+    """
+    视频代理接口，用于代理获取视频内容
+    参数: url - 视频文件的URL地址
+    """
+    try:
+        # 验证URL格式
+        url_reg = re.compile(r"http[s]?:\/\/[\w.-]+[\w\/-]*[\w.-]*\??[\w=&:\-\+\%]*[/]*")
+        if not url_reg.match(url):
+            raise HTTPException(status_code=400, detail="无效的URL格式")
+        
+        # 设置请求头，模拟浏览器行为
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+            "Accept": "*/*",
+            "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+            "Accept-Encoding": "gzip, deflate, br",
+            "Connection": "keep-alive",
+            "Sec-Fetch-Dest": "video",
+            "Sec-Fetch-Mode": "cors",
+            "Sec-Fetch-Site": "cross-site",
+        }
+        
+        # 使用httpx客户端获取视频内容
+        async with httpx.AsyncClient(follow_redirects=True, timeout=30.0) as client:
+            response = await client.get(url, headers=headers)
+            response.raise_for_status()
+            
+            # 获取响应头信息
+            content_type = response.headers.get("content-type", "video/mp4")
+            content_length = response.headers.get("content-length")
+            
+            # 构建响应头
+            response_headers = {
+                "Content-Type": content_type,
+                "Accept-Ranges": "bytes",
+                "Cache-Control": "public, max-age=3600",
+            }
+            
+            if content_length:
+                response_headers["Content-Length"] = content_length
+            
+            # 创建流式响应，逐块返回视频数据
+            def generate():
+                for chunk in response.iter_bytes(chunk_size=8192):
+                    yield chunk
+            
+            return StreamingResponse(
+                generate(),
+                media_type=content_type,
+                headers=response_headers
+            )
+            
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(
+            status_code=e.response.status_code,
+            detail=f"上游服务器返回错误: {e.response.status_code}"
+        )
+    except httpx.TimeoutException:
+        raise HTTPException(status_code=408, detail="请求超时")
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=502, detail=f"网络请求错误: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"代理视频失败: {str(e)}")
 
 
 # 设置MCP服务器
