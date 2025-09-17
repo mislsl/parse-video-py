@@ -127,6 +127,94 @@
 </main>
 
 <script>
+// Base64编码函数
+function Base64() {
+    var _keyStr = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
+    
+    this.encode = function(input) {
+        var output = "";
+        var chr1, chr2, chr3, enc1, enc2, enc3, enc4;
+        var i = 0;
+        input = _utf8_encode(input);
+        while (i < input.length) {
+            chr1 = input.charCodeAt(i++);
+            chr2 = input.charCodeAt(i++);
+            chr3 = input.charCodeAt(i++);
+            enc1 = chr1 >> 2;
+            enc2 = ((chr1 & 3) << 4) | (chr2 >> 4);
+            enc3 = ((chr2 & 15) << 2) | (chr3 >> 6);
+            enc4 = chr3 & 63;
+            if (isNaN(chr2)) {
+                enc3 = enc4 = 64;
+            } else if (isNaN(chr3)) {
+                enc4 = 64;
+            }
+            output = output +
+                _keyStr.charAt(enc1) + _keyStr.charAt(enc2) +
+                _keyStr.charAt(enc3) + _keyStr.charAt(enc4);
+        }
+        return output;
+    };
+    
+    function _utf8_encode(string) {
+        string = string.replace(/\r\n/g,"\n");
+        var utftext = "";
+        for (var n = 0; n < string.length; n++) {
+            var c = string.charCodeAt(n);
+            if (c < 128) {
+                utftext += String.fromCharCode(c);
+            } else if((c > 127) && (c < 2048)) {
+                utftext += String.fromCharCode((c >> 6) | 192);
+                utftext += String.fromCharCode((c & 63) | 128);
+            } else {
+                utftext += String.fromCharCode((c >> 12) | 224);
+                utftext += String.fromCharCode(((c >> 6) & 63) | 128);
+                utftext += String.fromCharCode((c & 63) | 128);
+            }
+        }
+        return utftext;
+    }
+}
+
+// 自定义签名函数
+function customSignature(str, secret) {
+    let s = str + secret;
+    // 步长抽样（每隔5个字符取1个）
+    let sampled = "";
+    for (let i = 0; i < s.length; i += 5) {
+        sampled += s[i];
+    }
+    // 反转+charCode偏移
+    let arr = [];
+    for (let i = sampled.length - 1; i >= 0; i--) {
+        arr.push(String.fromCharCode(sampled.charCodeAt(i) + 2));
+    }
+    let result = arr.join("");
+    // Base64 编码
+    let b64 = new Base64().encode(result);
+    // 截取前32字符
+    return b64.slice(0, 32);
+}
+
+// 生成带签名的URL - 修复URL编码问题
+function generateSignedUrl(baseUrl, params, secret) {
+    // 手动构建query字符串，避免双重编码
+    const queryParts = [];
+    for (const [key, value] of Object.entries(params)) {
+        if (key !== 'signature') {
+            queryParts.push(key + '=' + encodeURIComponent(value));
+        }
+    }
+    
+    const queryString = queryParts.join('&');
+    const signature = customSignature(queryString, secret);
+    
+    // 添加签名参数
+    queryParts.push('signature=' + encodeURIComponent(signature));
+    
+    return baseUrl + '?' + queryParts.join('&');
+}
+
 function setValue() {
     var data = document.getElementById("url").value;
     let regex = /http[s]?:\/\/[\w.-]+[\w\/-]*[\w.-]*\??[\w=&:\-\+\%]*[/]*/;
@@ -140,8 +228,12 @@ function setValue() {
         xmlhttp = new ActiveXObject("Microsoft.XMLHTTP");
     }
 
-    // 链接地址需要用encodeURIComponent加密, 否则会导致原视频链接中&后的字符被识别为本链接的参数而丢弃
-    xmlhttp.open("GET", "/video/share/url/parse?url=" + encodeURIComponent(v), false);
+    // 构建带签名的URL - /video/share/url/parse 接口现在也需要签名
+    const secret = "default_secret"; // 这里应该从服务器获取或配置
+    const signedUrl = generateSignedUrl("/video/share/url/parse", {url: v, a: 2}, secret);
+    console.log("Generated signed URL:", signedUrl);
+    
+    xmlhttp.open("GET", signedUrl, false);
     xmlhttp.send();
     var jsonObj = JSON.parse(xmlhttp.responseText);
     console.log(jsonObj);
@@ -155,8 +247,9 @@ function setValue() {
 
         // 如果video_url不为空, 则显示下载视频按钮
         if (jsonObj.data.video_url != "") {
-            // 使用代理URL来避免跨域问题
-            const proxyUrl = `/video/proxy?url=${encodeURIComponent(jsonObj.data.video_url)}`;
+            // 使用代理URL来避免跨域问题，并添加签名
+            const proxyParams = {url: jsonObj.data.video_url};
+            const proxyUrl = generateSignedUrl("/video/proxy", proxyParams, secret);
             successHtml += '<a class="mdui-btn mdui-btn-raised" href="' + proxyUrl + '" target="_blank" download="video" referrerpolicy="no-referrer">下载视频</a>';
         }
 

@@ -2,7 +2,9 @@ import os
 import re
 import secrets
 import time
+from urllib.parse import parse_qs, urlencode
 from parser import VideoSource, parse_video_id, parse_video_share_url
+from utils import verify_signature, get_query_string_from_url
 
 import uvicorn
 import httpx
@@ -75,6 +77,42 @@ def get_auth_dependency() -> list[Depends]:
     return [Depends(verify_credentials)]  # 返回封装好的 Depends
 
 
+def verify_signature_dependency(request: Request):
+    """
+    签名验证依赖项
+    """
+    print(f"DEBUG: verify_signature_dependency called for {request.url}")
+    
+    # 获取签名参数
+    signature = request.query_params.get("signature")
+    if not signature:
+        print("DEBUG: No signature parameter found")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="缺少签名参数"
+        )
+    
+    # 获取query字符串（排除signature参数）
+    query_params = dict(request.query_params)
+    query_params.pop("signature", None)
+    
+    # 使用urlencode来构建query字符串，与前端URLSearchParams保持一致
+    query_string = urlencode(query_params, doseq=True)
+    print(f"DEBUG: Query string: {query_string}")
+    print(f"DEBUG: Signature: {signature}")
+    
+    # 验证签名
+    if not verify_signature(query_string, signature):
+        print("DEBUG: Signature verification failed")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Signature verification failed"
+        )
+    
+    print("DEBUG: Signature verification passed")
+    return True
+
+
 @app.get("/", response_class=HTMLResponse, dependencies=get_auth_dependency())
 async def read_item(request: Request):
     return templates.TemplateResponse(
@@ -86,7 +124,7 @@ async def read_item(request: Request):
     )
 
 
-@app.get("/video/share/url/parse", dependencies=get_auth_dependency())
+@app.get("/video/share/url/parse", dependencies=[Depends(verify_signature_dependency)] + get_auth_dependency())
 async def share_url_parse(url: str):
     url_reg = re.compile(r"http[s]?:\/\/[\w.-]+[\w\/-]*[\w.-]*\??[\w=&:\-\+\%]*[/]*")
     video_share_url = url_reg.search(url).group()
@@ -101,7 +139,7 @@ async def share_url_parse(url: str):
         }
 
 
-@app.get("/video/id/parse", dependencies=get_auth_dependency())
+@app.get("/video/id/parse", dependencies=[Depends(verify_signature_dependency)] + get_auth_dependency())
 async def video_id_parse(source: VideoSource, video_id: str):
     try:
         video_info = await parse_video_id(source, video_id)
@@ -113,7 +151,7 @@ async def video_id_parse(source: VideoSource, video_id: str):
         }
 
 
-@app.get("/video/proxy", dependencies=get_auth_dependency())
+@app.get("/video/proxy", dependencies=[Depends(verify_signature_dependency)] + get_auth_dependency())
 async def video_proxy(url: str):
     """
     视频代理接口，用于代理获取视频内容

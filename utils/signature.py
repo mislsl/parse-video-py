@@ -1,27 +1,6 @@
 import base64
 import os
-from urllib.parse import parse_qs, urlparse
-
-
-def get_val_from_url_by_query_key(url: str, query_key: str) -> str:
-    """
-    从url的query参数中解析出query_key对应的值
-    :param url: url地址
-    :param query_key: query参数的key
-    :return:
-    """
-    url_res = urlparse(url)
-    url_query = parse_qs(url_res.query, keep_blank_values=True)
-
-    try:
-        query_val = url_query[query_key][0]
-    except KeyError:
-        raise KeyError(f"url中不存在query参数: {query_key}")
-
-    if len(query_val) == 0:
-        raise ValueError(f"url中query参数值长度为0: {query_key}")
-
-    return url_query[query_key][0]
+from typing import Optional
 
 
 def custom_signature(query_string: str, secret: str) -> str:
@@ -74,5 +53,32 @@ def get_query_string_from_url(url: str) -> str:
     :param url: 完整的URL
     :return: query字符串
     """
+    from urllib.parse import urlparse
     parsed_url = urlparse(url)
     return parsed_url.query
+
+
+def generate_signed_url(base_url: str, params: dict, secret: str = None) -> str:
+    """
+    生成带签名的URL
+    :param base_url: 基础URL
+    :param params: 参数字典
+    :param secret: 密钥
+    :return: 带签名的完整URL
+    """
+    if secret is None:
+        secret = os.getenv("PARSE_VIDEO_SECRET", "default_secret")
+    
+    # 构建query字符串（排除signature参数）
+    query_params = []
+    for key, value in sorted(params.items()):
+        if key != 'signature':
+            query_params.append(f"{key}={value}")
+    
+    query_string = "&".join(query_params)
+    signature = custom_signature(query_string, secret)
+    
+    # 添加签名参数
+    query_params.append(f"signature={signature}")
+    
+    return f"{base_url}?{'&'.join(query_params)}"
